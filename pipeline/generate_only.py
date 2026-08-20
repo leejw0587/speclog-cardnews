@@ -15,10 +15,13 @@ generate_only.py
 
 from __future__ import annotations
 import argparse
+import ctypes
 import datetime
 import os
+import subprocess
 import sys
 import time
+import webbrowser
 
 from pipeline import research_gemini, generate_content_claude, generate_cover_image, render_cardnews, topic_history
 from pipeline.config import config
@@ -55,6 +58,71 @@ class LiveLog:
 
     def close(self) -> None:
         self._f.close()
+
+
+def _open_folder(path: str) -> None:
+    if sys.platform == "win32":
+        subprocess.Popen(["explorer", path])
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])
+
+
+def _open_in_browser(html_path: str) -> None:
+    webbrowser.open(f"file:///{os.path.abspath(html_path)}", new=1)
+
+
+def _copy_to_clipboard(text: str) -> None:
+    if sys.platform == "win32":
+        # 표준 라이브러리(ctypes)만으로 유니코드 클립보드 복사 (Win32 API 직접 호출).
+        # GlobalAlloc/GlobalLock의 반환형을 명시하지 않으면 ctypes 기본값(32비트 int)으로
+        # 포인터가 잘려서 64비트 프로세스에서 access violation이 난다 - wintypes로 명시할 것.
+        from ctypes import wintypes
+
+        CF_UNICODETEXT = 13
+        GMEM_MOVEABLE = 0x0002
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+
+        kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+        kernel32.GlobalAlloc.argtypes = (wintypes.UINT, ctypes.c_size_t)
+        kernel32.GlobalLock.restype = wintypes.LPVOID
+        kernel32.GlobalLock.argtypes = (wintypes.HGLOBAL,)
+        kernel32.GlobalUnlock.argtypes = (wintypes.HGLOBAL,)
+        user32.SetClipboardData.restype = wintypes.HANDLE
+        user32.SetClipboardData.argtypes = (wintypes.UINT, wintypes.HANDLE)
+
+        data = text.encode("utf-16-le") + b"\x00\x00"
+        if not user32.OpenClipboard(0):
+            raise OSError("클립보드를 열 수 없습니다.")
+        try:
+            user32.EmptyClipboard()
+            h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
+            ptr = kernel32.GlobalLock(h_mem)
+            ctypes.memmove(ptr, data, len(data))
+            kernel32.GlobalUnlock(h_mem)
+            user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+        finally:
+            user32.CloseClipboard()
+    elif sys.platform == "darwin":
+        subprocess.run("pbcopy", input=text.encode("utf-8"), check=True)
+    else:
+        subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode("utf-8"), check=True)
+
+
+def _reveal_result(out_dir: str, html_path: str, caption: str, log: LiveLog) -> None:
+    """결과 폴더/HTML을 새 창으로 띄우고 캡션을 클립보드에 복사한다. GUI/클립보드가 없는 환경
+    (예: GitHub Actions)에서도 파이프라인 자체는 실패하지 않도록 단계별로 실패를 흡수한다."""
+    for label, action in [
+        ("결과 폴더 열기", lambda: _open_folder(out_dir)),
+        ("HTML 새 창으로 열기", lambda: _open_in_browser(html_path)),
+        ("캡션 클립보드 복사", lambda: _copy_to_clipboard(caption)),
+    ]:
+        try:
+            action()
+            log.step(f"      {label} 완료")
+        except Exception as e:  # noqa: BLE001
+            log.step(f"      {label} 실패 (건너뜀): {e}")
 
 
 def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dict:
@@ -103,6 +171,9 @@ def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dic
         elapsed = time.time() - t0
         log.step(f"전체 완료 ({elapsed:.1f}초 소요)")
         log.step(f"검토용 HTML: {html_path}")
+
+        log.step("결과 폴더/HTML을 열고 캡션을 클립보드에 복사합니다...")
+        _reveal_result(out_dir, html_path, card.get("caption") or "", log)
         log.step("이미지를 확인한 뒤, 마음에 들면 원하는 시점에 직접 업로드하세요.")
 
         return {"html_path": html_path, "png_paths": png_paths, "card": card, "log_path": log_path}

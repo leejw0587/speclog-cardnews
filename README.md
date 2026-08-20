@@ -124,8 +124,9 @@ python -m pipeline.generate_only --category job
 
 실행하면 콘솔에 실시간 로그가 찍히고, 완료되면 `output/{날짜}_{생성시각}_{카테고리}/` 폴더에
 `deck.html`(전체 카드뉴스를 스크롤로 확인) + 슬라이드별 `.png` + `log.txt`가 함께 생성됩니다.
-Windows에서는 `generate.bat`을, macOS/Linux에서는 `generate.sh`를 더블클릭/실행해도 같은 흐름이
-메뉴 형태로 진행됩니다.
+바로 검수할 수 있도록 결과 폴더와 HTML을 새 창으로 열고, 인스타그램 캡션은 클립보드에
+자동으로 복사해둡니다. Windows에서는 `generate.bat`을, macOS/Linux에서는 `generate.sh`를
+더블클릭/실행해도 같은 흐름이 메뉴 형태로 진행됩니다.
 
 이미 만든 카드 JSON의 문구만 고쳐서 다시 렌더링하고 싶다면:
 
