@@ -22,6 +22,7 @@ from google.genai import types
 
 from pipeline.config import config
 from pipeline.schema import CategoryCode, SlotCode, CATEGORY_LABELS
+from pipeline import topic_history
 
 RESEARCH_JSON_SCHEMA_HINT = {
     "job/activity/license": {
@@ -53,7 +54,7 @@ RESEARCH_JSON_SCHEMA_HINT = {
 }
 
 
-def _prompt_for(category: CategoryCode) -> str:
+def _prompt_for(category: CategoryCode, exclude: list[str] | None = None) -> str:
     label = CATEGORY_LABELS[category]
     today_hint = "요청 시점 기준 최신"
 
@@ -73,6 +74,15 @@ def _prompt_for(category: CategoryCode) -> str:
         }
         topic = topic_map[category]
 
+    exclude_rule = ""
+    if exclude:
+        exclude_list = "\n".join(f"- {kw}" for kw in exclude)
+        exclude_rule = f"""
+6. 아래는 최근 {topic_history.KEEP_DAYS}일 이내에 이미 다룬 소재입니다. 같은 공고/기사를 다시
+   고르지 말고, 새로운 소재를 찾으세요:
+{exclude_list}
+"""
+
     return f"""
 당신은 '스펙로그(SPECLOG)' 서비스의 자료조사 담당입니다.
 목표 카테고리: [{label}]
@@ -85,10 +95,17 @@ def _prompt_for(category: CategoryCode) -> str:
 4. 아래 JSON 스키마와 동일한 키를 가진 JSON만 출력하세요. 다른 설명 텍스트는 출력하지 마세요.
 5. 각 필드는 스키마에 적힌 분량(문장 수)을 넘기지 마세요 — 이 결과는 다음 단계(Claude)로
    그대로 전달되는 원재료이므로, 장황한 문단 대신 사실 위주로 간결하게 씁니다.
-
+{exclude_rule}
 JSON 스키마 예시:
 {json.dumps(schema, ensure_ascii=False, indent=2)}
 """.strip()
+
+
+def _extract_keywords(category: CategoryCode, data: dict) -> list[str]:
+    items = data.get("items") or data.get("news_items") or []
+    if category == "news":
+        return [it["headline"] for it in items if it.get("headline")]
+    return [f"{it.get('org_name', '')} {it.get('title', '')}".strip() for it in items if it.get("title")]
 
 
 def run(slot: SlotCode, category: CategoryCode) -> dict:
@@ -97,7 +114,8 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
-    prompt = _prompt_for(category)
+    exclude = topic_history.recent_keywords(category)
+    prompt = _prompt_for(category, exclude=exclude)
 
     # Google 검색 그라운딩 도구를 사용해 최신 사실 기반으로 응답하게 한다.
     grounding_tool = types.Tool(google_search=types.GoogleSearch())
@@ -124,6 +142,8 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
         raise RuntimeError(
             f"Gemini 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
         )
+
+    topic_history.record_keywords(category, _extract_keywords(category, data))
 
     return {
         "slot": slot,
