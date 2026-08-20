@@ -84,23 +84,23 @@ def _prompt_for(category: CategoryCode, exclude: list[str] | None = None, topic:
     elif exclude:
         exclude_list = "\n".join(f"- {kw}" for kw in exclude)
         exclude_rule = f"""
-6. 아래는 최근 {topic_history.KEEP_DAYS}일 이내에 이미 다룬 소재입니다. 같은 공고/기사를 다시
-   고르지 말고, 새로운 소재를 찾으세요:
+6. 아래는 최근 {topic_history.KEEP_DAYS}일 이내에 이미 다룬 소재. 같은 공고/기사를 다시
+   고르지 말고, 새로운 소재를 찾을 것:
 {exclude_list}
 """
 
     return f"""
-당신은 '스펙로그(SPECLOG)' 서비스의 자료조사 담당입니다.
+당신은 '스펙로그(SPECLOG)' 서비스의 자료조사 담당이다.
 목표 카테고리: [{label}]
 수집 대상: {item_topic} ({today_hint})
 
 규칙:
-1. Google 검색으로 실제 확인 가능한 사실만 사용하세요. 확실하지 않은 정보는 만들어내지 마세요.
-2. 마감일/일정은 반드시 "2026.09.15(화)" 같은 절대 날짜 문자열로 적으세요. "D-7" 같은 상대 표기는 절대 쓰지 마세요.
-3. 출처 URL을 반드시 포함하세요.
-4. 아래 JSON 스키마와 동일한 키를 가진 JSON만 출력하세요. 다른 설명 텍스트는 출력하지 마세요.
-5. 각 필드는 스키마에 적힌 분량(문장 수)을 넘기지 마세요 — 이 결과는 다음 단계(Claude)로
-   그대로 전달되는 원재료이므로, 장황한 문단 대신 사실 위주로 간결하게 씁니다.
+1. Google 검색으로 실제 확인 가능한 사실만 사용할 것. 확실하지 않은 정보는 지어내지 않는다.
+2. 마감일/일정은 반드시 "2026.09.15(화)" 같은 절대 날짜 문자열로 적는다. "D-7" 같은 상대 표기는 절대 금지.
+3. 출처 URL을 반드시 포함할 것.
+4. 아래 JSON 스키마와 동일한 키를 가진 JSON만 출력. 다른 설명 텍스트는 출력하지 않음.
+5. 각 필드는 스키마에 적힌 분량(문장 수)을 넘기지 않는다 — 이 결과는 다음 단계(Claude)로
+   그대로 전달되는 원재료이므로, 장황한 문단 대신 사실 위주로 간결하게 쓴다.
 {exclude_rule}
 JSON 스키마 예시:
 {json.dumps(schema, ensure_ascii=False, indent=2)}
