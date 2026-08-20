@@ -122,29 +122,38 @@ def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dic
 
     # Google 검색 그라운딩 도구를 사용해 최신 사실 기반으로 응답하게 한다.
     grounding_tool = types.Tool(google_search=types.GoogleSearch())
-    response = client.models.generate_content(
-        model=config.GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[grounding_tool],
-            temperature=0.2,
-        ),
-    )
 
-    raw_text = response.text.strip()
-    # 모델이 코드블록(```json ... ```)으로 감싸는 경우 제거
-    if raw_text.startswith("```"):
-        raw_text = raw_text.strip("`")
-        if raw_text.startswith("json"):
-            raw_text = raw_text[4:]
-        raw_text = raw_text.strip()
-
-    try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(
-            f"Gemini 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
+    # 가끔 깨진 JSON을 내놓는 경우가 있어(특히 소재가 짧고 모호할 때) 한 번은 재시도한다.
+    data = None
+    last_error: Exception | None = None
+    for attempt in range(2):
+        response = client.models.generate_content(
+            model=config.GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[grounding_tool],
+                temperature=0.2,
+            ),
         )
+
+        raw_text = response.text.strip()
+        # 모델이 코드블록(```json ... ```)으로 감싸는 경우 제거
+        if raw_text.startswith("```"):
+            raw_text = raw_text.strip("`")
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+            raw_text = raw_text.strip()
+
+        try:
+            data = json.loads(raw_text)
+            break
+        except json.JSONDecodeError as e:
+            last_error = RuntimeError(
+                f"Gemini 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
+            )
+
+    if data is None:
+        raise last_error
 
     return {
         "slot": slot,

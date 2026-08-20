@@ -188,35 +188,47 @@ def run(
 
     user_prompt = _build_user_prompt(slot, category, research_raw, publish_date)
 
-    message = client.messages.create(
-        model=config.CLAUDE_MODEL,
-        max_tokens=8000,
-        # 시스템 프롬프트는 호출마다 그대로 반복되는 가장 큰 입력 토큰 블록이라 캐싱한다
-        # (하루 3회 실행 + 같은 세션 내 여러 카테고리 연속 생성 시 입력 토큰 비용 절감).
-        system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-
-    raw_text = "".join(
-        block.text for block in message.content if block.type == "text"
-    ).strip()
-
-    if raw_text.startswith("```"):
-        raw_text = raw_text.strip("`")
-        if raw_text.startswith("json"):
-            raw_text = raw_text[4:]
-        raw_text = raw_text.strip()
-
-    try:
-        card = json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(
-            f"Claude 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
+    # 가끔 깨진 JSON이나 스키마 위반을 내놓는 경우가 있어 한 번은 재시도한다.
+    card = None
+    last_error: Exception | None = None
+    for attempt in range(2):
+        message = client.messages.create(
+            model=config.CLAUDE_MODEL,
+            max_tokens=8000,
+            # 시스템 프롬프트는 호출마다 그대로 반복되는 가장 큰 입력 토큰 블록이라 캐싱한다
+            # (하루 3회 실행 + 같은 세션 내 여러 카테고리 연속 생성 시 입력 토큰 비용 절감).
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_prompt}],
         )
 
-    errors = validate_card(card)
-    if errors:
-        raise RuntimeError(f"생성된 카드 JSON이 스키마를 만족하지 않습니다: {errors}")
+        raw_text = "".join(
+            block.text for block in message.content if block.type == "text"
+        ).strip()
+
+        if raw_text.startswith("```"):
+            raw_text = raw_text.strip("`")
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+            raw_text = raw_text.strip()
+
+        try:
+            card = json.loads(raw_text)
+        except json.JSONDecodeError as e:
+            card = None
+            last_error = RuntimeError(
+                f"Claude 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
+            )
+            continue
+
+        errors = validate_card(card)
+        if errors:
+            card = None
+            last_error = RuntimeError(f"생성된 카드 JSON이 스키마를 만족하지 않습니다: {errors}")
+            continue
+        break
+
+    if card is None:
+        raise last_error
 
     if card.get("caption"):
         card["caption"] = _format_caption_linebreaks(card["caption"])
