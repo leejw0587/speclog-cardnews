@@ -1,0 +1,19 @@
+# 비밀값
+.env
+
+# 파이프라인 생성 결과물 (실행할 때마다 새로 만들어짐)
+output/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Claude Code 로컬 설정 (사용자별 권한 상태, 공유 불필요)
+.claude/settings.local.json
+
+# 에디터/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,46 @@
+name: SPECLOG 카드뉴스 생성 (수동 실행)
+
+# "조사 -> 생성 -> 렌더링"까지만 자동화한다. 검토와 업로드는 항상 사람이 직접 한다.
+#   - schedule(cron) 트리거 없음 - workflow_dispatch(수동 "Run workflow" 버튼)로만 실행된다.
+#   - 결과 HTML/PNG는 GitHub Actions 아티팩트로 업로드되어 다운받아 검토할 수 있다.
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: "카테고리 (news/activity/license/job)"
+        required: true
+        default: "job"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run research -> generate -> render (upload/review 제외)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+        run: |
+          python -m pipeline.generate_only \
+            --category "${{ github.event.inputs.category }}"
+
+      - name: Upload result (HTML + PNG + 로그) for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardnews-${{ github.run_id }}-${{ github.event.inputs.category }}
+          path: output/*
+          retention-days: 14

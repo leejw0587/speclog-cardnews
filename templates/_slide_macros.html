@@ -1,0 +1,179 @@
+{#
+  _slide_macros.html
+  슬라이드 타입별 렌더링 매크로 (design.md 5.1 카탈로그와 1:1 대응).
+  각 매크로는 정확히 하나의 <div class="canvas ...">를 출력한다 - _deck.html이 이걸
+  여러 장 이어붙여서 한 장짜리 HTML 파일로 만들고, 렌더링 단계(render_cardnews.py)는
+  이 canvas 요소 하나하나를 Playwright element screenshot으로 캡처해서 PNG를 만든다.
+
+  스타일은 여기서 새로 만들지 않는다 - 전부 _deck_styles.html에 이미 정의되어 있고,
+  여기서는 클래스만 붙인다 (F-04: "디자인이 아니라 채움만").
+#}
+
+{% macro cover(card, slide) %}
+<div class="canvas slide-cover">
+  <div class="badge on-photo"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="cover-bg">
+    {% if slide.bg_image_data_uri %}<img src="{{ slide.bg_image_data_uri }}" alt="">{% endif %}
+  </div>
+  <div class="cover-content">
+    <div class="cover-headline">{{ slide.headline }}</div>
+    <div class="cover-rule"></div>
+  </div>
+  <div class="footer-meta on-photo">{{ card.publish_date }}</div>
+  <div class="watermark on-photo">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro hero_fact(card, slide) %}
+<div class="canvas slide-hero_fact">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="hero-wrap">
+    <div class="hero-label">{{ slide.label }}</div>
+    <div class="hero-value">{{ slide.value }}</div>
+    {% if slide.support %}<div class="hero-support">{{ slide.support }}</div>{% endif %}
+    {% if slide.extra_items %}
+    <div class="hero-extra">
+      {% for row in slide["extra_items"] %}
+      <div class="hero-extra-row">
+        <div class="hero-extra-label">{{ row.label }}</div>
+        <div class="hero-extra-value">{{ row.value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro info_grid(card, slide) %}
+<div class="canvas slide-info_grid">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="grid-wrap">
+    <div class="slide-title">{{ slide.heading | default('핵심 정보') }}</div>
+    <div class="grid-list">
+      {% for row in slide["items"] %}
+      <div class="grid-row">
+        <div class="grid-label">{{ row.label }}</div>
+        <div class="grid-value">{{ row.value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro target(card, slide) %}
+<div class="canvas slide-target">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="tag-wrap">
+    <div class="slide-title">{{ slide.heading | default('추천 타깃') }}</div>
+    <div class="tag-list">
+      {% for item in slide["items"] %}
+      <div class="tag-item">
+        <div class="tag-mark">✓</div>
+        <div class="tag-text">{{ item }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro ai_analysis(card, slide) %}
+<div class="canvas slide-ai_analysis">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="ai-wrap">
+    <div class="slide-title">{{ slide.heading | default('스펙로그 AI 시성비 분석') }}</div>
+    <div class="ai-score-row">
+      <div class="ai-score-value">{{ slide.score }}<span class="ai-score-unit">점</span></div>
+      <div class="ai-score-bar"><div class="ai-score-fill" style="width: {{ slide.score }}%;"></div></div>
+    </div>
+    {% if slide.score_label %}<div class="ai-score-label">{{ slide.score_label }}</div>{% endif %}
+    <div class="ai-proscons">
+      <div class="ai-col ai-col-pro">
+        <div class="ai-col-heading">Pros</div>
+        {% for item in slide["pros"] %}<div class="ai-col-item">{{ item }}</div>{% endfor %}
+      </div>
+      <div class="ai-col ai-col-con">
+        <div class="ai-col-heading">Cons</div>
+        {% for item in slide["cons"] %}<div class="ai-col-item">{{ item }}</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro ai_response(card, slide) %}
+<div class="canvas slide-ai_response">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="air-wrap">
+    <div class="slide-title">{{ slide.heading | default('스펙로그 AI 추천 대응') }}</div>
+    <div class="air-headline">{{ slide.response }}</div>
+    {% if slide.reason %}<div class="air-reason">{{ slide.reason }}</div>{% endif %}
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro highlight(card, slide) %}
+<div class="canvas slide-highlight">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="hl-wrap">
+    <div class="slide-title">{{ slide.heading | default('스펙로그 AI가 찾은 특별한 점') }}</div>
+    <div class="hl-list">
+      {% for item in slide["items"] %}
+      <div class="hl-item">
+        <div class="hl-label">{{ item.label }}</div>
+        <div class="hl-value">{{ item.value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro caution(card, slide) %}
+<div class="canvas slide-caution">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="caution-wrap">
+    <div class="slide-title">{{ slide.heading | default('지원 전 주의사항') }}</div>
+    <div class="caution-box">
+      {% for c in slide["items"] %}
+      <div class="caution-item">
+        <div class="caution-icon">!</div>
+        <div class="caution-text">{{ c }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}
+
+{% macro outro(card, slide) %}
+<div class="canvas slide-outro">
+  <div class="badge"><span class="dot"></span>{{ card.category_label }}</div>
+  <div class="outro-wrap">
+    <div class="outro-brand">SPECLOG</div>
+    <div class="outro-cta">{{ slide.cta_headline }}</div>
+    <div class="outro-cta-btn">{{ card.brand_handle }}</div>
+    {% if slide.cta_sub %}<div class="outro-sub">{{ slide.cta_sub }}</div>{% endif %}
+    <div class="outro-rule"></div>
+    <div class="outro-source">{{ slide.source_text }}</div>
+  </div>
+  <div class="footer-meta">{{ card.publish_date }}</div>
+  <div class="watermark">{{ card.brand_handle }}</div>
+</div>
+{% endmacro %}

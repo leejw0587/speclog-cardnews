@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+{#
+  _deck.html
+  카드뉴스 한 세트(카드 1개 = 슬라이드 5~6장)를 하나의 HTML 파일로 묶어서 보여주는
+  리뷰용 마스터 템플릿 (사용자 피드백: "하나의 html파일로 묶어서 제공할 것").
+
+  이 파일 하나를 브라우저로 열면 표지부터 아웃트로까지 전체 카드뉴스를 스크롤로 볼 수 있다.
+  render_cardnews.py는 이 파일을 한 번만 로드한 뒤, 슬라이드마다 .canvas 요소를 개별
+  스크린샷해서 PNG를 뽑아낸다 (Playwright element screenshot) - 파일은 하나지만
+  이미지는 여전히 장별로 나온다.
+
+  필요 컨텍스트: card (schema.py의 카드 JSON 그대로, card.brand_handle 포함)
+#}
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>SPECLOG - {{ card.category_label }} - {{ card.publish_date }}</title>
+{% include "_deck_styles.html" %}
+<style>
+  /* ---- 아래는 리뷰용 페이지 자체의 꾸밈(chrome)이다. 카드뉴스 디자인 시스템과는 무관하고,
+     PNG로 캡처되는 .canvas 영역 바깥에만 적용된다. ---- */
+  body {
+    background: #E7E9EC;
+    padding: 48px 0 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .deck-header {
+    width: 1080px;
+    max-width: 92vw;
+    margin-bottom: 32px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #4B5563;
+  }
+  .deck-header b { color: #111417; }
+  .slide-frame { margin-bottom: 40px; }
+  .slide-label {
+    width: 1080px;
+    max-width: 92vw;
+    margin: 0 auto 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #6B7280;
+    font-family: monospace;
+  }
+  /* 주의: border-radius/overflow는 절대 여기 넣지 않는다 - .canvas는 PNG로 그대로
+     스크린샷되는 영역이라 모서리가 둥글게 잘려서 저장되면 안 된다 (box-shadow는 박스
+     바깥에만 그려지므로 element screenshot 시 자동으로 제외되어 안전하다). */
+  .canvas {
+    margin: 0 auto;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+  }
+  .deck-footer {
+    width: 1080px;
+    max-width: 92vw;
+    margin-top: 8px;
+    padding: 28px 32px;
+    background: #fff;
+    border-radius: 12px;
+    font-size: 18px;
+    line-height: 1.7;
+    color: #374151;
+    white-space: pre-wrap;
+  }
+  .deck-footer h4 { margin-bottom: 10px; font-size: 16px; color: #9CA3AF; font-weight: 600; }
+</style>
+</head>
+<body style="--accent: var(--accent-{{ card.category_code }});">
+
+  <div class="deck-header">
+    SPECLOG · <b>{{ card.category_label }}</b> · {{ card.publish_date }} · {{ card.slides|length }}장
+    (검토용 파일 - 이 안의 각 카드가 그대로 개별 PNG로도 저장됩니다)
+  </div>
+
+  {% from "_slide_macros.html" import cover, hero_fact, info_grid, target, ai_analysis, ai_response, highlight, caution, outro %}
+  {% for slide in card.slides %}
+  <div class="slide-frame">
+    <div class="slide-label">#{{ '%02d' % loop.index }}/{{ '%02d' % card.slides|length }} · type={{ slide.type }}</div>
+    {% if slide.type == 'cover' %}{{ cover(card, slide) }}
+    {% elif slide.type == 'hero_fact' %}{{ hero_fact(card, slide) }}
+    {% elif slide.type == 'info_grid' %}{{ info_grid(card, slide) }}
+    {% elif slide.type == 'target' %}{{ target(card, slide) }}
+    {% elif slide.type == 'ai_analysis' %}{{ ai_analysis(card, slide) }}
+    {% elif slide.type == 'ai_response' %}{{ ai_response(card, slide) }}
+    {% elif slide.type == 'highlight' %}{{ highlight(card, slide) }}
+    {% elif slide.type == 'caution' %}{{ caution(card, slide) }}
+    {% elif slide.type == 'outro' %}{{ outro(card, slide) }}
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="deck-footer">
+    <h4>인스타그램 캡션 미리보기</h4>{{ card.caption }}
+  </div>
+
+</body>
+</html>

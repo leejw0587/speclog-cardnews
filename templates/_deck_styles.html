@@ -1,0 +1,225 @@
+{#
+  _deck_styles.html
+  카드뉴스 디자인 시스템의 전체 CSS를 한 곳에 모은 파일 (design.md와 1:1 대응).
+  _deck.html의 <head>에서 한 번만 include된다. 슬라이드 타입별 규칙은 모두 고유한
+  클래스명을 쓰기 때문에(design.md 5.1 카탈로그) 한 페이지에 여러 슬라이드가 함께 있어도
+  스타일이 서로 충돌하지 않는다. 유일하게 공용 요소(.badge/.footer-meta/.watermark)를
+  건드리는 cover 슬라이드는 클래스 기반 변형(.on-photo)으로 범위를 좁혔다 - CSS 등장 순서에
+  의존하지 않으므로 여러 슬라이드가 한 페이지에 섞여 있어도 안전하다.
+#}
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+
+  :root {
+    /* 3.1 베이스 컬러 (design.md) */
+    --bg: #FFFFFF;
+    --bg-alt: #F7F8FA;
+    --ink-900: #111417;
+    --ink-600: #4B5563;
+    --ink-300: #9CA3AF;
+    --line: #E5E7EB;
+    --warn-bg: #FFF7ED;
+    --warn-ink: #9A3412;
+    --cover-overlay-top: rgba(10,12,16,0.22); /* v2.4: 블러 완화로 상단도 더 선명해져 배지 가독성용으로 소폭 상향 */
+    --cover-overlay-bottom: rgba(10,12,16,0.85);
+
+    /* 3.2 카테고리별 Accent Color */
+    --accent-news: #0FAE7A;
+    --accent-activity: #06B6D4;
+    --accent-license: #F59E0B;
+    --accent-job: #1E5EFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif;
+    color: var(--ink-900);
+  }
+
+  /* ---- 슬라이드 공통 (design.md 3~4장) ---- */
+
+  .canvas {
+    position: relative;
+    width: 1080px;
+    height: 1350px;
+    padding: 72px; /* 세이프존 (design.md 2장) */
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    align-self: flex-start;
+    padding: 10px 20px;
+    border-radius: 100px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+  /* cover처럼 사진 배경 위에 놓일 때만 적용되는 변형 (클래스 기반 범위 - 등장 순서 무관) */
+  .badge.on-photo { position: relative; z-index: 1; background: rgba(255,255,255,0.92); color: var(--ink-900); }
+
+  .accent-bar { width: 4px; background: var(--accent); border-radius: 2px; }
+
+  .slide-title {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink-900);
+    margin-top: 36px;
+  }
+
+  .footer-meta {
+    position: absolute;
+    left: 72px;
+    bottom: 56px;
+    font-size: 20px;
+    color: var(--ink-300);
+  }
+  .watermark {
+    position: absolute;
+    right: 72px;
+    bottom: 56px;
+    font-size: 20px;
+    color: var(--ink-300);
+    font-weight: 500;
+  }
+  .footer-meta.on-photo, .watermark.on-photo { z-index: 1; color: rgba(255,255,255,0.75); }
+
+  /* ---- cover (표지/후킹) ---- */
+  .cover-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: linear-gradient(160deg, var(--accent) 0%, var(--ink-900) 120%);
+  }
+  .cover-bg img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(10px); /* v2.4: 28px는 사진이 뭔지 안 보일 정도로 과함 - 완화 */
+    transform: scale(1.05);
+  }
+  .cover-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, var(--cover-overlay-top) 0%, var(--cover-overlay-bottom) 78%);
+  }
+  .cover-content {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 40px;
+  }
+  .cover-headline {
+    max-height: 40%;
+    font-size: 88px;
+    font-weight: 800;
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+    color: #FFFFFF;
+    word-break: keep-all;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.25);
+  }
+  .cover-rule { margin-top: 28px; width: 88px; height: 6px; border-radius: 3px; background: #FFFFFF; }
+
+  /* ---- hero_fact ---- */
+  .hero-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .hero-label { font-size: 32px; font-weight: 600; color: var(--ink-600); }
+  .hero-value {
+    margin-top: 20px;
+    font-size: 96px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    line-height: 1.15;
+    word-break: keep-all;
+  }
+  .hero-support { margin-top: 24px; font-size: 30px; font-weight: 500; color: var(--ink-600); word-break: keep-all; }
+  /* v2.4: info_grid를 흡수한 보조 정보 목록 (기관/대상/혜택 등, hero-value 아래 컴팩트하게) */
+  .hero-extra { margin-top: 44px; display: flex; flex-direction: column; }
+  .hero-extra-row { display: flex; align-items: baseline; padding: 22px 0; border-top: 1px solid var(--line); }
+  .hero-extra-label { width: 160px; flex-shrink: 0; font-size: 20px; font-weight: 500; color: var(--ink-600); }
+  .hero-extra-value { font-size: 26px; font-weight: 600; color: var(--ink-900); word-break: keep-all; }
+
+  /* ---- info_grid ---- */
+  .grid-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .grid-list { margin-top: 40px; display: flex; flex-direction: column; }
+  .grid-row { display: flex; align-items: baseline; padding: 30px 0; border-bottom: 1px solid var(--line); }
+  .grid-row:first-child { border-top: 2px solid var(--ink-900); }
+  .grid-label { width: 200px; flex-shrink: 0; font-size: 22px; font-weight: 500; color: var(--ink-600); }
+  .grid-value { font-size: 34px; font-weight: 700; color: var(--ink-900); word-break: keep-all; }
+
+  /* ---- target ---- */
+  .tag-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .tag-list { margin-top: 48px; display: flex; flex-direction: column; gap: 24px; }
+  .tag-item { display: flex; align-items: center; gap: 20px; padding: 28px 32px; background: var(--bg-alt); border-radius: 16px; }
+  .tag-mark {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+    background: var(--accent); color: #fff; font-size: 22px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tag-text { font-size: 34px; font-weight: 600; color: var(--ink-900); word-break: keep-all; }
+
+  /* ---- ai_analysis (v2.5: 시성비 점수 + Pros/Cons 2단 비교) ---- */
+  .ai-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .ai-score-row { margin-top: 44px; display: flex; align-items: baseline; gap: 24px; }
+  .ai-score-value { font-size: 72px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .ai-score-unit { font-size: 26px; font-weight: 600; color: var(--ink-600); margin-left: 2px; }
+  .ai-score-bar { flex: 1; height: 14px; border-radius: 7px; background: var(--bg-alt); overflow: hidden; }
+  .ai-score-fill { height: 100%; border-radius: 7px; background: var(--accent); }
+  .ai-score-label { margin-top: 18px; font-size: 24px; font-weight: 500; color: var(--ink-600); word-break: keep-all; }
+  .ai-proscons { margin-top: 48px; display: flex; gap: 20px; }
+  .ai-col { flex: 1; background: var(--bg-alt); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .ai-col-heading { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
+  .ai-col-pro .ai-col-heading { color: var(--accent); }
+  .ai-col-con .ai-col-heading { color: var(--warn-ink); }
+  .ai-col-item { font-size: 24px; font-weight: 600; line-height: 1.4; color: var(--ink-900); word-break: keep-all; }
+
+  /* ---- ai_response (v2.6: 브리핑형 전용 - 점수 없이 "AI 추천 대응" 한 문장 + 근거) ---- */
+  .air-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .air-headline { margin-top: 44px; font-size: 52px; font-weight: 800; line-height: 1.35; color: var(--ink-900); word-break: keep-all; }
+  .air-reason { margin-top: 24px; font-size: 26px; font-weight: 500; color: var(--ink-600); word-break: keep-all; }
+
+  /* ---- highlight (v2.6: 간결형 전용 - 이 공고만의 특별한 점 1~2개) ---- */
+  .hl-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .hl-list { margin-top: 48px; display: flex; flex-direction: column; gap: 32px; }
+  .hl-item { display: flex; flex-direction: column; gap: 8px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  .hl-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .hl-label { font-size: 22px; font-weight: 600; color: var(--accent); }
+  .hl-value { font-size: 38px; font-weight: 800; color: var(--ink-900); line-height: 1.3; word-break: keep-all; }
+
+  /* ---- caution ---- */
+  .caution-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .caution-box { margin-top: 48px; background: var(--warn-bg); border-radius: 20px; padding: 44px 40px; display: flex; flex-direction: column; gap: 28px; }
+  .caution-item { display: flex; gap: 18px; align-items: flex-start; }
+  .caution-icon {
+    flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--warn-ink); color: #fff; font-size: 22px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .caution-text { font-size: 32px; font-weight: 600; line-height: 1.5; color: var(--warn-ink); word-break: keep-all; padding-top: 3px; }
+
+  /* ---- outro ---- */
+  .outro-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .outro-brand { font-size: 28px; font-weight: 700; color: var(--ink-300); letter-spacing: 0.05em; }
+  .outro-cta { margin-top: 28px; font-size: 52px; font-weight: 800; color: var(--ink-900); line-height: 1.35; word-break: keep-all; }
+  .outro-cta-btn { margin-top: 36px; display: inline-block; padding: 22px 44px; border-radius: 100px; background: var(--accent); color: #fff; font-size: 28px; font-weight: 700; }
+  .outro-sub { margin-top: 24px; font-size: 24px; font-weight: 500; color: var(--ink-600); word-break: keep-all; }
+  .outro-rule { margin: 36px 0 20px; width: 88px; height: 6px; border-radius: 3px; background: var(--line); }
+  .outro-source { font-size: 20px; color: var(--ink-300); line-height: 1.6; word-break: keep-all; }
+</style>
