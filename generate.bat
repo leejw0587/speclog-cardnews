@@ -52,7 +52,13 @@ if "%CATEGORY%"=="" (
 )
 
 echo.
-python -m pipeline.generate_only --category %CATEGORY%
+set /p TOPIC="특정 주제를 지정하시겠어요? (예: 카카오 2026 신입 공채 / 그냥 Enter시 자동 선정): "
+echo.
+if "%TOPIC%"=="" (
+    python -m pipeline.generate_only --category %CATEGORY%
+) else (
+    python -m pipeline.generate_only --category %CATEGORY% --topic "%TOPIC%"
+)
 
 echo.
 echo 창을 닫으려면 아무 키나 누르세요.

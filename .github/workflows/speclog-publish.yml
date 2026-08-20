@@ -10,6 +10,10 @@ on:
         description: "카테고리 (news/activity/license/job)"
         required: true
         default: "job"
+      topic:
+        description: "특정 소재를 지정하려면 입력 (비우면 자동 선정 + 최근 소재 제외)"
+        required: false
+        default: ""
 
 jobs:
   generate:
@@ -35,7 +39,8 @@ jobs:
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
         run: |
           python -m pipeline.generate_only \
-            --category "${{ github.event.inputs.category }}"
+            --category "${{ github.event.inputs.category }}" \
+            ${{ github.event.inputs.topic != '' && format('--topic "{0}"', github.event.inputs.topic) || '' }}
 
       - name: Upload result (HTML + PNG + 로그) for review
         if: always()

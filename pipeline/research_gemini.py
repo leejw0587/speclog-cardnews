@@ -54,13 +54,13 @@ RESEARCH_JSON_SCHEMA_HINT = {
 }
 
 
-def _prompt_for(category: CategoryCode, exclude: list[str] | None = None) -> str:
+def _prompt_for(category: CategoryCode, exclude: list[str] | None = None, topic: str | None = None) -> str:
     label = CATEGORY_LABELS[category]
     today_hint = "요청 시점 기준 최신"
 
     if category == "news":
         schema = RESEARCH_JSON_SCHEMA_HINT["news"]
-        topic = (
+        item_topic = (
             "대학생 취업/커리어에 영향을 주는 IT·산업 트렌드, 채용시장 동향 뉴스 4건 "
             "(정보 전달이 목적이므로 서로 다른 기업/기관/주제를 다루는 뉴스로 다양하게 모을 것 - "
             "같은 이슈를 다른 매체가 다룬 중복 기사는 피할 것)"
@@ -72,10 +72,16 @@ def _prompt_for(category: CategoryCode, exclude: list[str] | None = None) -> str
             "license": "대학생이 취업 스펙으로 취득 가능한 자격증 시험/접수 일정 2~3건",
             "job": "대학생 대상 인턴/신입 채용 공고 (대기업/스타트업/공공기관 포함, 아직 지원 가능한 것) 2~3건",
         }
-        topic = topic_map[category]
+        item_topic = topic_map[category]
 
     exclude_rule = ""
-    if exclude:
+    if topic:
+        # 사용자가 소재를 직접 지정한 경우: 그 소재에 대해서만 사실을 찾는다.
+        item_topic = (
+            f'사용자가 지정한 소재 「{topic}」 하나에 대한 실제 사실'
+            + ("들(직접 관련된 뉴스 1~3건)" if category == "news" else " (1건)")
+        )
+    elif exclude:
         exclude_list = "\n".join(f"- {kw}" for kw in exclude)
         exclude_rule = f"""
 6. 아래는 최근 {topic_history.KEEP_DAYS}일 이내에 이미 다룬 소재입니다. 같은 공고/기사를 다시
@@ -86,7 +92,7 @@ def _prompt_for(category: CategoryCode, exclude: list[str] | None = None) -> str
     return f"""
 당신은 '스펙로그(SPECLOG)' 서비스의 자료조사 담당입니다.
 목표 카테고리: [{label}]
-수집 대상: {topic} ({today_hint})
+수집 대상: {item_topic} ({today_hint})
 
 규칙:
 1. Google 검색으로 실제 확인 가능한 사실만 사용하세요. 확실하지 않은 정보는 만들어내지 마세요.
@@ -101,21 +107,18 @@ JSON 스키마 예시:
 """.strip()
 
 
-def _extract_keywords(category: CategoryCode, data: dict) -> list[str]:
-    items = data.get("items") or data.get("news_items") or []
-    if category == "news":
-        return [it["headline"] for it in items if it.get("headline")]
-    return [f"{it.get('org_name', '')} {it.get('title', '')}".strip() for it in items if it.get("title")]
-
-
-def run(slot: SlotCode, category: CategoryCode) -> dict:
+def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dict:
+    """topic을 지정하면 그 소재만 조사한다 (사용자 지정 주제 기능). 지정하지 않으면 카테고리
+    기본 소재를 조사하되, 최근에 이미 다룬 소재는 topic_history를 통해 제외한다.
+    실제로 어떤 소재가 카드에 쓰였는지는 2단계(Claude)의 used_topics가 기록하므로,
+    여기서는 히스토리에 아무것도 기록하지 않는다 (자료조사만 하고 카드로 안 만들 수도 있음)."""
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다 (.env 확인).")
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
-    exclude = topic_history.recent_keywords(category)
-    prompt = _prompt_for(category, exclude=exclude)
+    exclude = None if topic else topic_history.recent_keywords(category)
+    prompt = _prompt_for(category, exclude=exclude, topic=topic)
 
     # Google 검색 그라운딩 도구를 사용해 최신 사실 기반으로 응답하게 한다.
     grounding_tool = types.Tool(google_search=types.GoogleSearch())
@@ -143,8 +146,6 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
             f"Gemini 응답을 JSON으로 파싱하지 못했습니다: {e}\n원문:\n{raw_text[:2000]}"
         )
 
-    topic_history.record_keywords(category, _extract_keywords(category, data))
-
     return {
         "slot": slot,
         "category_code": category,
@@ -157,7 +158,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--category", required=True, choices=["news", "activity", "license", "job"])
+    parser.add_argument("--topic", default=None, help="지정하면 이 소재만 조사한다 (예: '카카오 2026 신입 공채')")
     args = parser.parse_args()
 
-    result = run(datetime.datetime.now().strftime("%H%M"), args.category)
+    result = run(datetime.datetime.now().strftime("%H%M"), args.category, topic=args.topic)
     print(json.dumps(result, ensure_ascii=False, indent=2))

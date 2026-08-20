@@ -20,7 +20,7 @@ import os
 import sys
 import time
 
-from pipeline import research_gemini, generate_content_claude, generate_cover_image, render_cardnews
+from pipeline import research_gemini, generate_content_claude, generate_cover_image, render_cardnews, topic_history
 from pipeline.config import config
 from pipeline.schema import CategoryCode, SlotCode, CATEGORY_LABELS
 
@@ -57,7 +57,7 @@ class LiveLog:
         self._f.close()
 
 
-def run(slot: SlotCode, category: CategoryCode) -> dict:
+def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dict:
     publish_date = _today_publish_date()
     label = CATEGORY_LABELS[category]
     date_compact = publish_date.split("(")[0].replace(".", "")
@@ -68,10 +68,11 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
 
     t0 = time.time()
     try:
-        log.step(f"시작 - 카테고리: {label} ({category}) / 생성 시각: {slot} / 발행일: {publish_date}")
+        topic_note = f" / 지정 주제: {topic}" if topic else ""
+        log.step(f"시작 - 카테고리: {label} ({category}) / 생성 시각: {slot} / 발행일: {publish_date}{topic_note}")
 
         log.step("[1/4] 자료조사 중... (Gemini + Google 검색)")
-        research = research_gemini.run(slot, category)
+        research = research_gemini.run(slot, category, topic=topic)
         n_items = len(research["raw"].get("items") or research["raw"].get("news_items") or [])
         log.step(f"      자료조사 완료 - {n_items}건 수집")
 
@@ -81,6 +82,9 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
         )
         card["slot"] = slot
         log.step(f"      콘텐츠 생성 완료 - 슬라이드 {len(card['slides'])}장 구성")
+
+        # 실제로 카드에 담긴 소재만 히스토리에 남긴다 (조사만 하고 버려진 후보는 기록하지 않음)
+        topic_history.record_keywords(category, card.get("used_topics") or [])
 
         log.step("[3/4] 표지 배경 이미지 생성 중... (Gemini 이미지 모델)")
         cover_slide = next((s for s in card["slides"] if s.get("type") == "cover"), None)
@@ -112,12 +116,13 @@ def run(slot: SlotCode, category: CategoryCode) -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SPECLOG 카드뉴스 - 조사부터 렌더링까지 원클릭 생성")
     parser.add_argument("--category", choices=["news", "activity", "license", "job"], required=True)
+    parser.add_argument("--topic", default=None, help="지정하면 이 소재만 조사해서 카드뉴스로 만든다")
     args = parser.parse_args()
 
     slot = _current_slot()
 
     try:
-        result = run(slot, args.category)
+        result = run(slot, args.category, topic=args.topic)
     except Exception as e:  # noqa: BLE001
         print(f"\n생성 중 오류가 발생했습니다: {e}", file=sys.stderr)
         sys.exit(1)
