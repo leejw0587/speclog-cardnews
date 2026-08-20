@@ -94,7 +94,7 @@ class ResearchNewsItem(TypedDict):
 # slides 리스트의 각 원소가 그대로 해당 type 템플릿의 Jinja2 변수로 주입된다.
 # ---------------------------------------------------------------------------
 
-REQUIRED_CARD_KEYS = {"category_code", "category_label", "publish_date", "slides", "caption"}
+REQUIRED_CARD_KEYS = {"category_code", "category_label", "publish_date", "slides", "caption", "used_topics"}
 
 
 def example_card_skeleton(category_code: CategoryCode, publish_date: str) -> dict:
@@ -106,6 +106,7 @@ def example_card_skeleton(category_code: CategoryCode, publish_date: str) -> dic
         "category_label": CATEGORY_LABELS[category_code],
         "publish_date": publish_date,   # "2026.08.19(수)"
         "caption": "",  # 인스타그램 게시물 캡션 (해시태그 포함)
+        "used_topics": [],  # 실제로 이 카드에 담은 자료조사 항목 식별 문자열 (topic_history 기록용)
     }
 
     if template_type == "B":  # 브리핑형 (뉴스) - info_grid 2장으로 정보량 확보
@@ -211,5 +212,9 @@ def validate_card(card: dict) -> list[str]:
     outro_slides = [s for s in slides if s.get("type") == "outro"]
     if outro_slides and not outro_slides[-1].get("source_text"):
         errors.append("outro.source_text(출처)가 비어 있음")
+
+    used_topics = card.get("used_topics")
+    if not isinstance(used_topics, list) or not used_topics or not all(isinstance(t, str) and t for t in used_topics):
+        errors.append("used_topics가 비어 있거나 문자열 리스트가 아님 (실제로 다룬 자료조사 항목을 적어야 함)")
 
     return errors
