@@ -157,12 +157,12 @@ def run(slot: SlotCode, category: CategoryCode, topic: str | None = None) -> dic
         log.step("[3/4] 표지 배경 이미지 생성 중... (Gemini 이미지 모델)")
         cover_slide = next((s for s in card["slides"] if s.get("type") == "cover"), None)
         if cover_slide:
-            data_uri = generate_cover_image.generate_cover_background(category, cover_slide.get("bg_prompt", ""))
+            data_uri, error = generate_cover_image.generate_cover_background(category, cover_slide.get("bg_prompt", ""))
             if data_uri:
                 cover_slide["bg_image_data_uri"] = data_uri
                 log.step("      배경 이미지 생성 완료")
             else:
-                log.step("      배경 이미지 생성 실패/키 없음 - 그라디언트로 대체 (문제 없음)")
+                log.step(f"      배경 이미지 생성 실패 - 그라디언트로 대체 (문제 없음). 사유: {error}")
 
         log.step("[4/4] 카드뉴스 렌더링 중... (HTML 저장 -> PNG 변환)")
         html_path, png_paths = render_cardnews.render_card(card, out_dir=out_dir)

@@ -43,10 +43,11 @@ def build_prompt(category_code: str, topic_hint: str = "") -> str:
     ).strip()
 
 
-def generate_cover_background(category_code: str, topic_hint: str = "") -> str | None:
-    """성공하면 'data:image/png;base64,...' 형태의 data URI를 반환. 실패하면 None."""
+def generate_cover_background(category_code: str, topic_hint: str = "") -> tuple[str | None, str | None]:
+    """성공하면 (data URI, None)을 반환. 실패하면 (None, 실패 사유)를 반환한다.
+    실패 사유는 호출부(generate_only.py)가 log.txt에 남겨서, 나중에 원인을 확인할 수 있게 한다."""
     if not config.GEMINI_API_KEY:
-        return None
+        return None, "GEMINI_API_KEY가 설정되지 않음"
 
     try:
         from google import genai
@@ -73,13 +74,13 @@ def generate_cover_background(category_code: str, topic_hint: str = "") -> str |
                 else:
                     b64 = base64.b64encode(img_bytes).decode("utf-8")
                 mime = getattr(part.inline_data, "mime_type", "image/png") or "image/png"
-                return f"data:{mime};base64,{b64}"
+                return f"data:{mime};base64,{b64}", None
+
+        return None, f"응답에 이미지 파트 없음 (세이프티 필터 등) - finish_reason: {getattr(response, 'candidates', None) and response.candidates[0].finish_reason}"
 
     except Exception as e:  # noqa: BLE001
         # 표지 배경 생성 실패는 치명적 오류가 아니다 - CSS 그라디언트로 폴백한다.
-        print(f"[generate_cover_image] 배경 생성 실패, 그라디언트로 폴백합니다: {e}")
-
-    return None
+        return None, str(e)
 
 
 if __name__ == "__main__":
@@ -91,9 +92,9 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="cover_bg_test.png")
     args = parser.parse_args()
 
-    uri = generate_cover_background(args.category, args.topic)
+    uri, error = generate_cover_background(args.category, args.topic)
     if uri is None:
-        print("생성 실패 (또는 GEMINI_API_KEY 없음) - 폴백 그라디언트가 사용됩니다.")
+        print(f"생성 실패 - 폴백 그라디언트가 사용됩니다. 사유: {error}")
     else:
         header, b64data = uri.split(",", 1)
         with open(args.out, "wb") as f:
