@@ -41,8 +41,28 @@
 1. [console.anthropic.com](https://console.anthropic.com)에서 계정을 만들고 결제 정보를 등록합니다.
 2. **API Keys** 메뉴에서 새 키를 발급합니다.
 3. `.env`의 `ANTHROPIC_API_KEY`에 붙여넣습니다.
-4. `.env.example`의 `CLAUDE_MODEL` 기본값(`claude-sonnet-4-5`)은 실행 시점 기준 사용 가능한
+4. `.env.example`의 `CLAUDE_MODEL` 기본값(`claude-sonnet-5`)은 실행 시점 기준 사용 가능한
    최신 모델 ID로 바꿔도 됩니다. Anthropic 문서(docs.claude.com)의 모델 목록을 확인하세요.
+
+### 2-b. (선택) API 키 대신 Claude Pro/Max 구독으로 실행하기
+
+Claude Pro/Max 구독자라면 종량 과금 API 키 없이, 본인 구독 사용량으로 콘텐츠 생성 단계를 돌릴
+수 있습니다. **로컬 PC 실행 전용**입니다 — GitHub Actions 같은 원격 실행은 브라우저 로그인이
+불가능해 계속 `ANTHROPIC_API_KEY`가 필요합니다.
+
+1. `pip install claude-agent-sdk` (가상환경 활성화 상태에서).
+2. 터미널에서 `claude setup-token` 실행 → 브라우저가 열리면 Claude 계정으로 로그인하고,
+   완료되면 터미널에 토큰 문자열이 출력됩니다.
+3. `.env`에 두 줄을 추가합니다 (`ANTHROPIC_API_KEY`는 비워둬도 됩니다):
+   ```
+   CLAUDE_AUTH_MODE=oauth
+   CLAUDE_CODE_OAUTH_TOKEN=<2번에서 출력된 토큰 값>
+   ```
+   `claude` CLI의 로그인 세션에 자동으로 저장되는 게 아니라, 이 환경변수로 직접 넘겨줘야
+   스크립트가 인식합니다 — `claude setup-token`만 하고 이 줄을 빼먹으면 "OAuth session
+   expired" 에러가 납니다. 한 번만 설정해두면 이후 실행마다 다시 물어보지 않습니다.
+
+`CLAUDE_AUTH_MODE`를 다시 지우거나 `api_key`로 바꾸면 기존 API 키 방식으로 돌아갑니다.
 
 ---
 

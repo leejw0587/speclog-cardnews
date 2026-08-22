@@ -23,6 +23,9 @@ class Config:
     # --- Claude / Anthropic (콘텐츠 생성) ---
     ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
     CLAUDE_MODEL = _get("CLAUDE_MODEL", default="claude-sonnet-5")
+    # "api_key"(기본, 종량 과금) 또는 "oauth"(Claude Pro/Max 구독 사용량, `claude setup-token`으로
+    # 미리 로그인해둬야 함). docs/SETUP.md 참고.
+    CLAUDE_AUTH_MODE = _get("CLAUDE_AUTH_MODE", default="api_key")
 
     # --- 경로 ---
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

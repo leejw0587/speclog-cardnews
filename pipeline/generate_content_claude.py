@@ -10,6 +10,8 @@ generate_content_claude.py
 
 from __future__ import annotations
 import argparse
+import asyncio
+import contextlib
 import json
 
 import anthropic
@@ -175,35 +177,79 @@ def _format_caption_linebreaks(caption: str) -> str:
     return "\n".join([IG_LINE_BREAK, *lines])
 
 
+def _call_claude_api(user_prompt: str) -> str:
+    """기본 방식: Anthropic API 키로 종량 과금 호출."""
+    if not config.ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY가 설정되지 않았습니다 (.env 확인).")
+
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    message = client.messages.create(
+        model=config.CLAUDE_MODEL,
+        max_tokens=8000,
+        # 시스템 프롬프트는 호출마다 그대로 반복되는 가장 큰 입력 토큰 블록이라 캐싱한다
+        # (하루 3회 실행 + 같은 세션 내 여러 카테고리 연속 생성 시 입력 토큰 비용 절감).
+        system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return "".join(block.text for block in message.content if block.type == "text")
+
+
+def _call_claude_oauth(user_prompt: str) -> str:
+    """CLAUDE_AUTH_MODE=oauth: API 과금 대신 Claude Pro/Max 구독 사용량으로 처리한다.
+    `claude setup-token`으로 한 번 로그인해둔 OAuth 세션(CLAUDE_CODE_OAUTH_TOKEN)을 그대로
+    쓰므로 매 실행마다 물어보지 않는다. 파일/bash 등 에이전트 툴은 전부 꺼서 순수 텍스트
+    생성 호출로만 동작시킨다."""
+    try:
+        from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, query
+    except ImportError:
+        raise RuntimeError(
+            "CLAUDE_AUTH_MODE=oauth를 쓰려면 claude-agent-sdk가 필요합니다: pip install claude-agent-sdk"
+        )
+
+    options = ClaudeAgentOptions(
+        model=config.CLAUDE_MODEL,
+        system_prompt=SYSTEM_PROMPT,
+        tools=[],
+        max_turns=1,
+    )
+
+    async def _run() -> str:
+        chunks: list[str] = []
+        error: str | None = None
+        # aclosing으로 감싸 제너레이터를 명시적으로 정리한다 - 그냥 break만 하면 정리 시점이
+        # 이벤트 루프 종료 시점으로 밀려서 "asynchronous generator is already running" 경고가 뜬다.
+        async with contextlib.aclosing(query(prompt=user_prompt, options=options)) as stream:
+            async for message in stream:
+                if isinstance(message, AssistantMessage):
+                    chunks.extend(block.text for block in message.content if isinstance(block, TextBlock))
+                elif isinstance(message, ResultMessage):
+                    if message.is_error:
+                        error = message.result
+                    break
+        if error:
+            raise RuntimeError(
+                f"Claude(OAuth) 실행 오류: {error}\n"
+                "-> 'claude setup-token'으로 로그인했는지, 세션이 만료되지 않았는지 확인하세요."
+            )
+        return "".join(chunks)
+
+    return asyncio.run(_run())
+
+
 def run(
     slot: SlotCode,
     category: CategoryCode,
     research_raw: dict,
     publish_date: str,
 ) -> dict:
-    if not config.ANTHROPIC_API_KEY:
-        raise RuntimeError("ANTHROPIC_API_KEY가 설정되지 않았습니다 (.env 확인).")
-
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-
+    call_model = _call_claude_oauth if config.CLAUDE_AUTH_MODE == "oauth" else _call_claude_api
     user_prompt = _build_user_prompt(slot, category, research_raw, publish_date)
 
     # 가끔 깨진 JSON이나 스키마 위반을 내놓는 경우가 있어 한 번은 재시도한다.
     card = None
     last_error: Exception | None = None
     for attempt in range(2):
-        message = client.messages.create(
-            model=config.CLAUDE_MODEL,
-            max_tokens=8000,
-            # 시스템 프롬프트는 호출마다 그대로 반복되는 가장 큰 입력 토큰 블록이라 캐싱한다
-            # (하루 3회 실행 + 같은 세션 내 여러 카테고리 연속 생성 시 입력 토큰 비용 절감).
-            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-
-        raw_text = "".join(
-            block.text for block in message.content if block.type == "text"
-        ).strip()
+        raw_text = call_model(user_prompt).strip()
 
         if raw_text.startswith("```"):
             raw_text = raw_text.strip("`")

@@ -73,7 +73,7 @@ flowchart LR
 | 영역 | 사용 기술 |
 |---|---|
 | 자료조사 | Gemini API (Google 검색 그라운딩) |
-| 콘텐츠 생성 | Claude API (Anthropic) |
+| 콘텐츠 생성 | Claude API (Anthropic) — API 키 또는 Claude Pro/Max 구독 OAuth 중 선택 |
 | 이미지 생성 | Gemini 이미지 모델 (Nano Banana 계열) |
 | 렌더링 | Jinja2 (HTML 템플릿) + Playwright (스크린샷) |
 | 배포 | GitHub Actions (수동 실행 전용) |
